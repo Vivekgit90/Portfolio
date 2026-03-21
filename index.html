@@ -16,6 +16,7 @@
     --muted: #555;
     --font-display: 'Syne', sans-serif;
     --font-mono: 'DM Mono', monospace;
+    --error-banner-transition-duration: 0.2s;
   }
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -47,13 +48,16 @@
     letter-spacing: 0.04em;
     line-height: 1.5;
     opacity: 0;
-    transition: opacity 0.2s ease, transform 0.2s ease;
+    transition: opacity var(--error-banner-transition-duration) ease, transform var(--error-banner-transition-duration) ease;
     z-index: 100001;
   }
   .error-banner.visible {
     opacity: 1;
     transform: translate(-50%, 0);
+    pointer-events: auto;
+    visibility: visible;
   }
+  .error-banner:not(.visible) { pointer-events: none; visibility: hidden; }
   .error-banner__icon {
     color: var(--accent2);
     font-size: 16px;
@@ -652,7 +656,7 @@
 
 <div class="cursor" id="cursor"></div>
 <div class="cursor-ring" id="cursorRing"></div>
-<div class="error-banner" id="errorBanner" role="alert" aria-live="assertive" hidden>
+<div class="error-banner" id="errorBanner" role="alert">
   <span class="error-banner__icon" aria-hidden="true">⚠</span>
   <span class="error-banner__text">Something went wrong. Please refresh and try again.</span>
   <button class="error-banner__close" type="button" aria-label="Dismiss error message">×</button>
@@ -921,28 +925,34 @@
     });
   }, { threshold: 0.1 });
 
-  document.querySelectorAll('section, .project-card, .skill-item, .focus-card, .workflow-step')
-    .forEach(el => observer.observe(el));
-
   // Friendly error handling
   const errorBanner = document.getElementById('errorBanner');
   const errorText = errorBanner?.querySelector('.error-banner__text');
   const errorClose = errorBanner?.querySelector('.error-banner__close');
-  const ERROR_TRANSITION_MS = 200;
+  const ERROR_TRANSITION_DURATION_FALLBACK_MS = 200;
+  const ERROR_TRANSITION_DURATION_MS = errorBanner
+    ? parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--error-banner-transition-duration')) * 1000 || ERROR_TRANSITION_DURATION_FALLBACK_MS
+    : ERROR_TRANSITION_DURATION_FALLBACK_MS;
+  const ERROR_HIDE_BUFFER_MS = 50;
+  const ERROR_MESSAGE_GENERIC = 'Something went wrong. Please refresh and try again.';
+  const ERROR_MESSAGE_LOAD = 'Looks like something didn’t load correctly. Please refresh or reach out if it keeps happening.';
+  const ERROR_MESSAGE_REJECTION = 'We hit a snag. Try again in a moment or reload the page.';
   let errorHideTimeout;
 
   function hideErrorBanner() {
     if (!errorBanner) return;
     errorBanner.classList.remove('visible');
     clearTimeout(errorHideTimeout);
-    errorHideTimeout = setTimeout(() => { errorBanner.hidden = true; }, ERROR_TRANSITION_MS);
+    errorHideTimeout = setTimeout(() => {
+      errorBanner.setAttribute('aria-hidden', 'true');
+    }, ERROR_TRANSITION_DURATION_MS + ERROR_HIDE_BUFFER_MS);
   }
 
   function showFriendlyError(message) {
     if (!errorBanner || !errorText) return;
     clearTimeout(errorHideTimeout);
-    errorText.textContent = message || 'Something went wrong. Please refresh and try again.';
-    errorBanner.hidden = false;
+    errorText.textContent = message || ERROR_MESSAGE_GENERIC;
+    errorBanner.setAttribute('aria-hidden', 'false');
     requestAnimationFrame(() => errorBanner.classList.add('visible'));
     errorHideTimeout = setTimeout(hideErrorBanner, 6000);
   }
@@ -950,13 +960,24 @@
   errorClose?.addEventListener('click', hideErrorBanner);
 
   window.addEventListener('error', (event) => {
-    if (event?.error) console.error(event.error);
-    showFriendlyError('Looks like something didn’t load correctly. Please refresh or reach out if it keeps happening.');
+    if (event?.error) {
+      console.error(event.error);
+      showFriendlyError(ERROR_MESSAGE_GENERIC);
+      return;
+    }
+
+    if (event?.target && event.target !== window) {
+      showFriendlyError(ERROR_MESSAGE_LOAD);
+      return;
+    }
+
+    showFriendlyError(ERROR_MESSAGE_GENERIC);
   });
 
   window.addEventListener('unhandledrejection', (event) => {
-    if (event?.reason) console.error(event.reason);
-    showFriendlyError('We hit a snag. Try again in a moment or reload the page.');
+    if (!event?.reason) return;
+    console.error(event.reason);
+    showFriendlyError(ERROR_MESSAGE_REJECTION);
   });
 </script>
 </body>
