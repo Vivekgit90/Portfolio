@@ -652,7 +652,7 @@
 
 <div class="cursor" id="cursor"></div>
 <div class="cursor-ring" id="cursorRing"></div>
-<div class="error-banner" id="errorBanner" role="alert" aria-live="polite" hidden>
+<div class="error-banner" id="errorBanner" role="alert" aria-live="assertive" hidden>
   <span class="error-banner__icon" aria-hidden="true">⚠</span>
   <span class="error-banner__text">Something went wrong. Please refresh and try again.</span>
   <button class="error-banner__close" type="button" aria-label="Dismiss error message">×</button>
@@ -928,13 +928,14 @@
   const errorBanner = document.getElementById('errorBanner');
   const errorText = errorBanner?.querySelector('.error-banner__text');
   const errorClose = errorBanner?.querySelector('.error-banner__close');
+  const ERROR_TRANSITION_MS = 200;
   let errorHideTimeout;
 
   function hideErrorBanner() {
     if (!errorBanner) return;
     errorBanner.classList.remove('visible');
     clearTimeout(errorHideTimeout);
-    errorHideTimeout = setTimeout(() => { errorBanner.hidden = true; }, 250);
+    errorHideTimeout = setTimeout(() => { errorBanner.hidden = true; }, ERROR_TRANSITION_MS);
   }
 
   function showFriendlyError(message) {
@@ -948,11 +949,13 @@
 
   errorClose?.addEventListener('click', hideErrorBanner);
 
-  window.addEventListener('error', () => {
+  window.addEventListener('error', (event) => {
+    if (event?.error) console.error(event.error);
     showFriendlyError('Looks like something didn’t load correctly. Please refresh or reach out if it keeps happening.');
   });
 
-  window.addEventListener('unhandledrejection', () => {
+  window.addEventListener('unhandledrejection', (event) => {
+    if (event?.reason) console.error(event.reason);
     showFriendlyError('We hit a snag. Try again in a moment or reload the page.');
   });
 </script>
