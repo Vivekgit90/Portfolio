@@ -28,6 +28,48 @@
     cursor: none;
   }
 
+  .error-banner {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translate(-50%, -16px);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #1b1b1b;
+    border: 1px solid rgba(255, 107, 53, 0.35);
+    border-left: 3px solid var(--accent2);
+    border-radius: 6px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+    color: var(--text);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    line-height: 1.5;
+    opacity: 0;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 100001;
+  }
+  .error-banner.visible {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  .error-banner__icon {
+    color: var(--accent2);
+    font-size: 16px;
+  }
+  .error-banner__close {
+    margin-left: 4px;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    opacity: 0.7;
+    font-size: 14px;
+    transition: opacity 0.2s ease;
+    cursor: none;
+  }
+  .error-banner__close:hover { opacity: 1; color: var(--accent); }
+
   /* Custom cursor */
   .cursor {
     width: 12px; height: 12px;
@@ -610,6 +652,11 @@
 
 <div class="cursor" id="cursor"></div>
 <div class="cursor-ring" id="cursorRing"></div>
+<div class="error-banner" id="errorBanner" role="alert" aria-live="polite" hidden>
+  <span class="error-banner__icon" aria-hidden="true">⚠</span>
+  <span class="error-banner__text">Something went wrong. Please refresh and try again.</span>
+  <button class="error-banner__close" type="button" aria-label="Dismiss error message">×</button>
+</div>
 
 <!-- Hero -->
 <section class="hero">
@@ -835,7 +882,8 @@
   </div>
 </footer>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script>
+<script>
   // Custom cursor
   const cursor = document.getElementById('cursor');
   const ring = document.getElementById('cursorRing');
@@ -871,4 +919,42 @@
         observer.unobserve(e.target);
       }
     });
-  }, { threshold: 0.1 })
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('section, .project-card, .skill-item, .focus-card, .workflow-step')
+    .forEach(el => observer.observe(el));
+
+  // Friendly error handling
+  const errorBanner = document.getElementById('errorBanner');
+  const errorText = errorBanner?.querySelector('.error-banner__text');
+  const errorClose = errorBanner?.querySelector('.error-banner__close');
+  let errorHideTimeout;
+
+  function hideErrorBanner() {
+    if (!errorBanner) return;
+    errorBanner.classList.remove('visible');
+    clearTimeout(errorHideTimeout);
+    errorHideTimeout = setTimeout(() => { errorBanner.hidden = true; }, 250);
+  }
+
+  function showFriendlyError(message) {
+    if (!errorBanner || !errorText) return;
+    clearTimeout(errorHideTimeout);
+    errorText.textContent = message || 'Something went wrong. Please refresh and try again.';
+    errorBanner.hidden = false;
+    requestAnimationFrame(() => errorBanner.classList.add('visible'));
+    errorHideTimeout = setTimeout(hideErrorBanner, 6000);
+  }
+
+  errorClose?.addEventListener('click', hideErrorBanner);
+
+  window.addEventListener('error', () => {
+    showFriendlyError('Looks like something didn’t load correctly. Please refresh or reach out if it keeps happening.');
+  });
+
+  window.addEventListener('unhandledrejection', () => {
+    showFriendlyError('We hit a snag. Try again in a moment or reload the page.');
+  });
+</script>
+</body>
+</html>
